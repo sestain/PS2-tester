@@ -37,12 +37,17 @@ extern const unsigned int size_padman_irx;
 static char padBuf[256] __attribute__((aligned(64)));
 
 static void init() {
+	// Reset the IOP
 	SifInitRpc(0);
+
 	sbv_patch_enable_lmb();
+    // sbv_patch_disable_prefix_check();
 
     // Load sio2man & padman drivers (Better in someway than the ones in bios?)
-    SifExecModuleBuffer(&sio2man_irx, size_sio2man_irx, 0, 0, 0);
-    SifExecModuleBuffer(&padman_irx, size_padman_irx, 0, 0, 0);
+    // SifExecModuleBuffer(&sio2man_irx, size_sio2man_irx, 0, 0, 0);
+    // SifExecModuleBuffer(&padman_irx, size_padman_irx, 0, 0, 0);
+    SifLoadModule("rom0:SIO2MAN", 0, NULL);
+    SifLoadModule("rom0:PADMAN", 0, NULL);
 
     padInit(0);
     padPortOpen(0, 0, padBuf);
@@ -196,49 +201,49 @@ int main() {
 
         if (padRead(0, 0, &buttons) != 0) {
             buttonState = 0xffff ^ buttons.btns;
-        
+
             switch (buttonState) {
                 case PAD_SQUARE:
                     updateNeeded++;
                     mode++;
                     changeMode(gsGlobal, &mode);
                     break;
-        
+
                 case PAD_TRIANGLE:
                     updateNeeded++;
                     mode--;
                     changeMode(gsGlobal, &mode);
                     break;
-        
+
                 case PAD_CROSS:
                     updateNeeded++;
                     screen--;
                     break;
-        
+
                 case PAD_CIRCLE:
                     updateNeeded++;
                     screen++;
                     break;
-        
+
                 case PAD_UP:
                     if (screen == 1) {
                         pixels++;
                         updateNeeded++;
                     }
                     break;
-        
+
                 case PAD_DOWN:
                     if (screen == 1) {
                         pixels--;
                         updateNeeded++;
                     }
                     break;
-        
+
                 case PAD_START:
                     gsKit_clear(gsGlobal, GS_SETREG_RGBA(0x00, 0x00, 0x00, 0x80));
                     gsKit_queue_exec(gsGlobal);
-                    break;
-        
+                    return 0;
+
                 default:
                     break;
             }
