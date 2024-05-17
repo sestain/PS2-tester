@@ -52,27 +52,18 @@ static void checkerboard(GSGLOBAL *gsGlobal, int pixels) {
     gsKit_clear(gsGlobal, GS_SETREG_RGBA(0, 0, 0, 0x80)); // Clear to a black background
 
     // Iterate through each pixel
-    for (int y = 0; y < gsGlobal->Height; y += pixels) {
-        for (int x = 0; x < gsGlobal->Width; x += pixels) {
+    for (int y = 0; y < gsGlobal->Height; y++) {
+        for (int x = 0; x < gsGlobal->Width; x++) {
             // Calculate whether the current pixel should be black or white
-            int shouldColor = ((x / pixels + y / pixels) % 2 == 0);
+            int shouldColor = (((x / pixels) + (y / pixels)) % 2 == 0);
 
-            // Fill the pixels with black or white
-            for (int dy = 0; dy < pixels; dy++) {
-                for (int dx = 0; dx < pixels; dx++) {
-                    if (!shouldColor) {
-                        int newX = x + dx;
-                        int newY = y + dy;
-                        if (newX < gsGlobal->Width && newY < gsGlobal->Height) {
-                            gsKit_prim_point(gsGlobal, newX, newY, 2, GS_SETREG_RGBA(0xFF, 0xFF, 0xFF, 0x80)); // White
-                        }
-                    }
-                }
+            // Fill the pixel with black or white
+            if (!shouldColor) {
+                gsKit_prim_point(gsGlobal, x, y, 2, GS_SETREG_RGBA(0xFF, 0xFF, 0xFF, 0x80)); // White
             }
         }
     }
 }
-
 
 static void colors(GSGLOBAL *gsGlobal) {
     float boxWidth = gsGlobal->Width * 0.04f;
@@ -130,7 +121,7 @@ static void colors(GSGLOBAL *gsGlobal) {
     }
 }
 
-static void changeMode(GSGLOBAL *gsGlobal, unsigned int *mode) {
+static void changeMode(GSGLOBAL *gsGlobal, int *mode) {
     switch (*mode) {
         case 0:
             *mode = 3;
@@ -178,14 +169,15 @@ int main() {
     gsKit_init_screen(gsGlobal);
 
     struct padButtonStatus buttons;
-    unsigned int buttonState;
-    unsigned int mode = gsGlobal->Mode == 0x03 ? 1 : 2;
-    unsigned int updateNeeded = 1;
+    int buttonState;
+    int mode = gsGlobal->Mode == 0x03 ? 1 : 2;
+    int updateNeeded = 1;
     int pixels = 1;
     int screen = 0;
 
     while(1) {
         if (updateNeeded) {
+            screen = (screen < 0) ? 1 : (screen > 1) ? (screen == 2 ? 0 : 1 - (screen - 1)) : screen;
             switch (screen) {
                 case 1:
                     pixels = (pixels < 1) ? 8 : (pixels > 8) ? (pixels == 9 ? 1 : 8 - (pixels - 8)) : pixels;
@@ -199,48 +191,56 @@ int main() {
             
             gsKit_queue_exec(gsGlobal);
             updateNeeded = 0;
-            usleep(500000);
+            usleep(300000);
         }
 
         if (padRead(0, 0, &buttons) != 0) {
             buttonState = 0xffff ^ buttons.btns;
-
-            if (buttonState & PAD_SQUARE) {
-                updateNeeded++;
-                mode++;
-                changeMode(gsGlobal, &mode);
-            }
-
-            if (buttonState & PAD_TRIANGLE) {
-                updateNeeded++;
-                mode--;
-                changeMode(gsGlobal, &mode);
-            }
-
-            if (buttonState & PAD_CROSS) {
-                updateNeeded++;
-                screen = 0;
-            }
-
-            if (buttonState & PAD_CIRCLE) {
-                updateNeeded++;
-                screen = 1;
-            }
-
-            if (buttonState & PAD_UP) {
-                (screen == 1) ? pixels++ : 0;
-                (screen == 1) ? updateNeeded++ : 0;
-            }
-
-            if (buttonState & PAD_DOWN) {
-                (screen == 1) ? pixels-- : 0;
-                (screen == 1) ? updateNeeded++ : 0;
-            }
-
-            if (buttonState & PAD_START) {
-                gsKit_clear(gsGlobal, GS_SETREG_RGBA(0x00, 0x00, 0x00, 0x80));
-                gsKit_queue_exec(gsGlobal);
-                break;
+        
+            switch (buttonState) {
+                case PAD_SQUARE:
+                    updateNeeded++;
+                    mode++;
+                    changeMode(gsGlobal, &mode);
+                    break;
+        
+                case PAD_TRIANGLE:
+                    updateNeeded++;
+                    mode--;
+                    changeMode(gsGlobal, &mode);
+                    break;
+        
+                case PAD_CROSS:
+                    updateNeeded++;
+                    screen--;
+                    break;
+        
+                case PAD_CIRCLE:
+                    updateNeeded++;
+                    screen++;
+                    break;
+        
+                case PAD_UP:
+                    if (screen == 1) {
+                        pixels++;
+                        updateNeeded++;
+                    }
+                    break;
+        
+                case PAD_DOWN:
+                    if (screen == 1) {
+                        pixels--;
+                        updateNeeded++;
+                    }
+                    break;
+        
+                case PAD_START:
+                    gsKit_clear(gsGlobal, GS_SETREG_RGBA(0x00, 0x00, 0x00, 0x80));
+                    gsKit_queue_exec(gsGlobal);
+                    break;
+        
+                default:
+                    break;
             }
         }
 
